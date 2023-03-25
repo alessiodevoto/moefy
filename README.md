@@ -58,8 +58,9 @@ display_experts_load(moe_attn_block, expert_loads)
 display_abs_experts_load(moe_attn_block, expert_loads)
 ```
 
-![load](https://github.com/alessiodevoto/moe-transformer/blob/main/images/expert_load.png | width=100)
-![total_load](https://github.com/alessiodevoto/moe-transformer/blob/main/images/total_expert_load.png | width=50)
+<img src="https://github.com/alessiodevoto/moe-transformer/blob/main/images/expert_load.png" width=50% height=50%>
+
+<img src="https://github.com/alessiodevoto/moe-transformer/blob/main/images/total_expert_load.png" width=50% height=50%>
 
 ## Visualize patches in Vision model
 
