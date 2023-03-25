@@ -58,24 +58,20 @@ display_experts_load(moe_attn_block, expert_loads)
 display_abs_experts_load(moe_attn_block, expert_loads)
 ```
 
-<img src="https://github.com/alessiodevoto/moe-transformer/blob/main/images/expert_load.png" width=50% height=50%>
+<img src="https://github.com/alessiodevoto/moe-transformer/blob/main/images/expert_load.png" width=60% height=60%>
 
-<img src="https://github.com/alessiodevoto/moe-transformer/blob/main/images/total_expert_load.png" width=50% height=50%>
+<img src="https://github.com/alessiodevoto/moe-transformer/blob/main/images/total_expert_load.png" width=30% height=30%>
 
 ## Visualize patches in Vision model
 
+When using a Vision Transformer-like model, we can visualize how patches go through each Mixture of experts.
 
 ```python
-
-from torch.nn import Sequential, Linear
-from einops.layers.torch import Rearrange
-from moefy.utils import image_through_experts
-from matplotlib import pyplot as plt
+# a simple transformer like model for vision
 
 patch_size = 60
 hidden_dim = 96 
 
-# a simple transformer like model for vision
 moe_model = Sequential(
     Rearrange("b c (h s1) (w s2) -> b (h w) (s1 s2 c)", s1=patch_size, s2=patch_size), # make patches
     Linear(patch_size * patch_size * 3, hidden_dim),
@@ -90,13 +86,15 @@ moe_model = Sequential(
 One can visualize how tokens are distributed across experts like so:
 
 ```python 
+from moefy.utils import image_through_experts
+from matplotlib import pyplot as plt
+
 image = plt.imread("./images/owl.jpg")
 image_through_experts(image=image, model=moe_model, patch_size=patch_size)
 ```
 
 ![attention](https://github.com/alessiodevoto/moe-transformer/blob/main/images/experts_att.png)
 ![mlp](https://github.com/alessiodevoto/moe-transformer/blob/main/images/experts_mlp.png)
-![vitblock](https://github.com/alessiodevoto/moe-transformer/blob/main/images/experts_vitblock.png)
 
 
 #### Code TODOs
