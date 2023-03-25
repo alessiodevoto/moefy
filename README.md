@@ -62,7 +62,7 @@ display_abs_experts_load(moe_attn_block, expert_loads)
 
 <img src="https://github.com/alessiodevoto/moefy/blob/main/images/total_expert_load.png" width=30% height=30%>
 
-## Visualize patches in Vision model
+## Visualize patches in Vision models
 
 When using a Vision Transformer-like model, we can visualize how patches go through each Mixture of experts.
 
