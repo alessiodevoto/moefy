@@ -1,5 +1,7 @@
-## Custom MoE blocks
+# MoEfy
+Create Mixtures of Experts out of (almost) any Pytorch Module!
 
+### Custom MoE blocks 
 Create a custom MoE block from any torch Module, by subclassing the abstract class `MoEBlock`.
 - Define the list of experts and override the `expert_forward` method. 
 - The module will automatically deal with routing the tokens and computing balancing losses (if needed).
@@ -7,24 +9,23 @@ Create a custom MoE block from any torch Module, by subclassing the abstract cla
 For example, to create a MoE of Linear layers.
 
 ```python
-
 from moefy.moefy import MoEBlock
 
 class CustomMoEBlock(MoEBlock):
     def __init__(self, input_dim, output_dim, num_experts, *args, **kwargs):
        
         # initialize experts 
-        # beware that input_dim must be provided as argument to superclass
         experts = [nn.Linear(
             in_features=input_dim,
             out_features=output_dim) for _ in range(num_experts )]
+        
+        # call superclass constructor
         super().__init__(input_dim = input_dim, experts=experts, *args, **kwargs)
 
-    # eaxh of the experts shall be called like this
+    # override the expert forward to manipulate special in-out formats
     def expert_forward(self, expert: nn.Module, x: torch.Tensor) -> torch.Tensor:
         out =  expert(x)
         return out
-
 ```
 
 Provide arguments about the routing mechanism,like `expert choice`, token `aggregation`, `noise` that must be added to routing matrix and so on ... 
@@ -46,7 +47,6 @@ lin_moe = CustomMoEBlock(
 lin_moe
 ```
 
-
 ## Visualize experts load in any MoE block
 
 It is possible to visualize the expert load for each Mixture, that is, which and how many tokens are distributed to each expert.
@@ -58,8 +58,8 @@ display_experts_load(moe_attn_block, expert_loads)
 display_abs_experts_load(moe_attn_block, expert_loads)
 ```
 
-![load](https://github.com/alessiodevoto/moe-transformer/blob/main/images/expert_load.png)
-![total_load](https://github.com/alessiodevoto/moe-transformer/blob/main/images/total_expert_load.png)
+![load](https://github.com/alessiodevoto/moe-transformer/blob/main/images/expert_load.png | width=100)
+![total_load](https://github.com/alessiodevoto/moe-transformer/blob/main/images/total_expert_load.png | width=50)
 
 ## Visualize patches in Vision model
 
