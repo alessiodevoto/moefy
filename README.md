@@ -93,8 +93,8 @@ image = plt.imread("./images/owl.jpg")
 image_through_experts(image=image, model=moe_model, patch_size=patch_size)
 ```
 
-![attention](https://github.com/alessiodevoto/moe-transformer/blob/main/images/experts_att.png)
-![mlp](https://github.com/alessiodevoto/moe-transformer/blob/main/images/experts_mlp.png)
+![attention](https://github.com/alessiodevoto/moe-transformer/blob/main/images/moe0.png)
+![mlp](https://github.com/alessiodevoto/moe-transformer/blob/main/images/moe1.png)
 
 
 #### Code TODOs
