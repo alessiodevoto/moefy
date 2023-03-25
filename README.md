@@ -58,9 +58,9 @@ display_experts_load(moe_attn_block, expert_loads)
 display_abs_experts_load(moe_attn_block, expert_loads)
 ```
 
-<img src="https://github.com/alessiodevoto/moe-transformer/blob/main/images/expert_load.png" width=60% height=60%>
+<img src="https://github.com/alessiodevoto/moefy/blob/main/images/expert_load.png" width=60% height=60%>
 
-<img src="https://github.com/alessiodevoto/moe-transformer/blob/main/images/total_expert_load.png" width=30% height=30%>
+<img src="https://github.com/alessiodevoto/moefy/blob/main/images/total_expert_load.png" width=30% height=30%>
 
 ## Visualize patches in Vision model
 
@@ -93,8 +93,8 @@ image = plt.imread("./images/owl.jpg")
 image_through_experts(image=image, model=moe_model, patch_size=patch_size)
 ```
 
-![attention](https://github.com/alessiodevoto/moe-transformer/blob/main/images/moe0.png)
-![mlp](https://github.com/alessiodevoto/moe-transformer/blob/main/images/moe1.png)
+![attention](https://github.com/alessiodevoto/moefy/blob/main/images/moe0.png)
+![mlp](https://github.com/alessiodevoto/moefy/blob/main/images/moe1.png)
 
 
 #### Code TODOs
