@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from einops import rearrange, repeat, pack, einsum
+from einops import rearrange, repeat, pack, einsum, reduce
 from typing import List, Literal, Optional
 from .routers import TopkRouter
 from abc import ABC, abstractmethod
@@ -73,9 +73,9 @@ class MoEBlock(nn.Module, ABC):
 
         # collapse batch 
         # get routing matrix and aux loss
-        x = rearrange(x, "batch seq dim -> (batch seq) dim")
-        self.exp_masks, self.aux_loss, self.rout_matrix = self.router(x, batch_size=self.batch_size)
-        routing_mask = torch.gt(self.exp_masks.expand(-1, -1, self.input_dim), 0)
+        # x = rearrange(x, "batch seq dim -> (batch seq) dim")
+        self.exp_masks, self.aux_loss, self.rout_matrix = self.router(x)
+        routing_mask = torch.gt(self.exp_masks.expand(-1, -1, -1, self.input_dim), 0)
         
         # we forward all masked inputs to experts and collect them here
         expert_outs = []
@@ -83,25 +83,15 @@ class MoEBlock(nn.Module, ABC):
         for i in range(num_experts):
             
             expert_input = x * routing_mask[i]
-            
-            # return to (batch, seq, dim) as nn.Multihead attention needs it
-            expert_input = rearrange(expert_input, "(batch seq) dim -> batch seq dim", batch=b)
             expert_out = self.expert_forward(self.experts[i], expert_input)
-            expert_out = rearrange(expert_out, "batch seq dim -> (batch seq) dim")
             
-
             # multiply each token by routing score
             expert_out = expert_out * self.exp_masks[i].expand(expert_out.shape)
             expert_outs.append(expert_out)
 
         
-        expert_outs, _ = pack(expert_outs, "* a b") 
-        
-        if self.aggregation == 'mean':
-            expert_outs = expert_outs.mean(dim=0) 
-        elif self.aggregation == 'sum':
-            expert_outs = expert_outs.sum(dim=0) 
-        expert_outs = rearrange(expert_outs, "(batch seq) dim -> batch seq dim", batch=b)
+        expert_outs, _ = pack(expert_outs, "* b s d") 
+        expert_outs = reduce(expert_outs, "e b s d -> b s d", reduction=self.aggregation)
         
         return expert_outs
     
@@ -133,13 +123,14 @@ class MoEBlock(nn.Module, ABC):
 
     @property
     def experts_masks(self):
-        return self.exp_masks
+        unbatched_routing_matrix = rearrange(self.exp_masks, "exp batch seq dim -> exp (batch seq) dim", batch=self.batch_size)
+        return unbatched_routing_matrix
+        
     
     @property
     @torch.no_grad()
     def batched_experts_masks(self):
-        batched_routing_matrix = rearrange(self.exp_masks, "exp (batch seq) dim -> exp batch seq dim", batch=self.batch_size)
-        return batched_routing_matrix
+        return self.exp_masks
     
 
     @torch.no_grad()
@@ -176,9 +167,4 @@ class Hole(nn.Module):
         super().__init__()
     def forward(self, *args, **kwargs):
         # get first element in input sequence and return zeros like that element
-        if args:
-            dropped_token = torch.zeros_like(args[0])
-        else:
-            dropped_token = torch.zeros_like(list(kwargs.values())[0])
-        return torch.zeros(1, 1, 1)
-
+        return torch.zeros(1)

@@ -89,7 +89,7 @@ class TopkRouter(nn.Module):
         return torch.special.entr(normalize(routing_matrix.sum(dim=0), dim=0, eps=1e-6))
     
 
-    def forward(self, x, batch_size = None):
+    def forward(self, x):
         """
         Compute routing scores multiplying each input token with expert embeddings, and return a mask for
         the input for each expert.
@@ -101,8 +101,12 @@ class TopkRouter(nn.Module):
                 can be obtained by multiplying the initial input sequence by routing_matrix[i]
             aux_loss: torch.Tensor -> an auxiliary balancing loss
         """
-
+        # init auxiliary loss
         aux_loss = torch.tensor(0.0, device=x.device)
+
+        # unbatch input
+        b, s, d = x.shape
+        x = rearrange(x, "b s d -> (b s) d")
 
         # compute routing scores
         routing_scores = einsum(x, self.expert_embs, "seq dim, dim exp -> seq exp")
@@ -146,9 +150,6 @@ class TopkRouter(nn.Module):
         zeros = torch.zeros_like(routing_matrix, requires_grad=True) 
         experts_masks = zeros.scatter(1, top_k_indices, top_k_logits)  
         experts_masks = experts_masks.t() if self.expert_choice else experts_masks
-        """experts_masks = repeat(experts_masks, "seq exp -> dim seq exp", dim = self.input_dim)
-        experts_masks = rearrange(experts_masks, "dim seq exp -> exp seq dim")"""
-        experts_masks = rearrange(experts_masks, "seq exp -> exp seq ()")
+        experts_masks = rearrange(experts_masks, "(b seq) exp -> exp b seq ()", b=b)
 
         return experts_masks, aux_loss, routing_matrix.t() if self.expert_choice else routing_matrix
-
