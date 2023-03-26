@@ -76,7 +76,7 @@ class MoEBlock(nn.Module, ABC):
         # get routing matrix and aux loss
         # x = rearrange(x, "batch seq dim -> (batch seq) dim")
         exp_masks, self.aux_loss, self.rout_matrix = self.router(x)
-        self.exp_masks = self.exp_masks.unsqueeze(-1) if x.dim() > 3 else exp_masks
+        self.exp_masks = exp_masks.unsqueeze(-1) if x.dim() > 3 else exp_masks
         
         # we forward all masked inputs to experts and collect them here
         expert_outs = []
