@@ -91,8 +91,8 @@ class MoEBlock(nn.Module, ABC):
             expert_outs.append(expert_out)
 
         
-        expert_outs, _ = pack(expert_outs, "* b s d") 
-        expert_outs = reduce(expert_outs, "e b s d -> b s d", reduction=self.aggregation)
+        expert_outs = torch.stack(expert_outs) 
+        expert_outs = reduce(expert_outs, "e ... -> ...", reduction=self.aggregation)
         
         return expert_outs
     
