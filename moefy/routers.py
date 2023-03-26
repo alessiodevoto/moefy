@@ -5,6 +5,7 @@ from einops import einsum, repeat, rearrange
 from torch.distributions import Normal
 from typing import Literal
 from .samplers import simple_sampler
+from einops.layers.torch import Rearrange, Reduce
 
 """
 Routers for a Mixture of Experts of Transformers.
@@ -24,7 +25,8 @@ class TopkRouter(nn.Module):
         k: int, 
         noise : Literal['gumbel', 'gaussian', 'simple'] = 'gumbel',
         aux_criterion: Literal['entropy', 'prob'] = 'entropy',
-        expert_choice: bool = False
+        expert_choice: bool = False,
+        route: Literal['tokens', 'images'] = 'tokens'
         ) -> None:
         super().__init__()
 
@@ -38,18 +40,23 @@ class TopkRouter(nn.Module):
         self.noise = noise
         self.aux_criterion = aux_criterion
         self.expert_choice = expert_choice
+        self.route = route
 
         # initialize expert embeddings
         self.expert_embs = nn.Parameter(torch.empty((self.input_dim, self.num_experts), requires_grad=True))
         torch.nn.init.orthogonal_(self.expert_embs, gain=1)
 
+        if self.route == 'images':
+            self.unbatch = Reduce("b d ... -> b d", reduction='mean')
+            
+        else:
+            self.unbatch = Rearrange("b s d -> (b s) d")
+            
         if self.noise == 'gaussian':
             self.routing_noise = nn.Parameter(torch.randn(input_dim, num_experts), requires_grad=True)
             self.register_buffer("mean", torch.tensor([0.0]))
             self.register_buffer("std", torch.tensor([1.0]))
-    
 
-    @staticmethod
     def cv_squared(x):
         """
         CV squared as per as per https://arxiv.org/abs/1701.06538. 
@@ -87,29 +94,27 @@ class TopkRouter(nn.Module):
     @staticmethod
     def entropy_loss(routing_matrix):
         return torch.special.entr(normalize(routing_matrix.sum(dim=0), dim=0, eps=1e-6))
-    
-
+         
     def forward(self, x):
         """
-        Compute routing scores multiplying each input token with expert embeddings, and return a mask for
-        the input for each expert.
-
         Args:
-            x : torch.Tensor -> unbatched input tokens of shape (seq, embedding_dim)
+            x : torch.Tensor -> unbatched input tokens of shape (batch, seq, *)
         Returns:
             routing_matrix: torch.Tensor -> routing matrix of shape (exp, seq, dim), where the input for expert i 
                 can be obtained by multiplying the initial input sequence by routing_matrix[i]
             aux_loss: torch.Tensor -> an auxiliary balancing loss
         """
-        # init auxiliary loss
+
         aux_loss = torch.tensor(0.0, device=x.device)
 
-        # unbatch input
-        b, s, d = x.shape
-        x = rearrange(x, "b s d -> (b s) d")
+        b, s, *dims = x.shape
+        if self.route == 'images':
+            s = 1
+
+        x = self.unbatch(x)
 
         # compute routing scores
-        routing_scores = einsum(x, self.expert_embs, "seq dim, dim exp -> seq exp")
+        routing_scores = einsum(x, self.expert_embs, "b d, d exp -> b exp")
         if self.expert_choice:
             routing_scores = routing_scores.t() 
         
@@ -150,6 +155,7 @@ class TopkRouter(nn.Module):
         zeros = torch.zeros_like(routing_matrix, requires_grad=True) 
         experts_masks = zeros.scatter(1, top_k_indices, top_k_logits)  
         experts_masks = experts_masks.t() if self.expert_choice else experts_masks
-        experts_masks = rearrange(experts_masks, "(b seq) exp -> exp b seq ()", b=b)
+        
+        experts_masks = rearrange(experts_masks, "(b s) e -> e b s ()", b=b, s=s)
 
         return experts_masks, aux_loss, routing_matrix.t() if self.expert_choice else routing_matrix

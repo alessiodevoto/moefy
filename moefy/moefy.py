@@ -18,6 +18,7 @@ class MoEBlock(nn.Module, ABC):
                 aux_criterion :  Literal['entropy', 'prob'] = 'prob',
                 aggregation: Literal['mean', 'sum'] = 'sum',
                 expert_choice: bool = False,
+                route: Literal['tokens', 'images'] = 'tokens',
                 layer_id: Optional[int] = None,
                 *args,
                 **kwargs
@@ -43,6 +44,7 @@ class MoEBlock(nn.Module, ABC):
         self.num_experts = len(experts) + 1 if hole else len(experts)
         self.aggregation = aggregation
         self.expert_choice = expert_choice
+        self.route = route
 
         # routing mechanism
         self.router = TopkRouter(
@@ -51,7 +53,8 @@ class MoEBlock(nn.Module, ABC):
             k = self.k,
             noise = self.noise,
             aux_criterion=self.aux_criterion,
-            expert_choice=self.expert_choice
+            expert_choice=self.expert_choice,
+            route=self.route
         )
 
         # initialize experts list
@@ -68,25 +71,23 @@ class MoEBlock(nn.Module, ABC):
         """
         
         x = args[0]
-        b, s, d = x.size()
-        self.batch_size = b
-
-        # collapse batch 
+        self.batch_size, *dims =  x.size()
+        
         # get routing matrix and aux loss
         # x = rearrange(x, "batch seq dim -> (batch seq) dim")
-        self.exp_masks, self.aux_loss, self.rout_matrix = self.router(x)
-        routing_mask = torch.gt(self.exp_masks.expand(-1, -1, -1, self.input_dim), 0)
+        exp_masks, self.aux_loss, self.rout_matrix = self.router(x)
+        self.exp_masks = self.exp_masks.unsqueeze(-1) if x.dim() > 3 else exp_masks
         
         # we forward all masked inputs to experts and collect them here
         expert_outs = []
         num_experts = self.num_experts - int(self.hole)
         for i in range(num_experts):
             
-            expert_input = x * routing_mask[i]
+            expert_input = x * torch.gt(self.exp_masks[i], 0)
             expert_out = self.expert_forward(self.experts[i], expert_input)
             
             # multiply each token by routing score
-            expert_out = expert_out * self.exp_masks[i].expand(expert_out.shape)
+            expert_out = expert_out * self.exp_masks[i]
             expert_outs.append(expert_out)
 
         
@@ -168,3 +169,4 @@ class Hole(nn.Module):
     def forward(self, *args, **kwargs):
         # get first element in input sequence and return zeros like that element
         return torch.zeros(1)
+
